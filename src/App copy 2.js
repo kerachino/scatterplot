@@ -11,13 +11,15 @@ import React, { useEffect, useState } from 'react';
 // [2, 4, 6]
 function App() {
   const [data, setData] = useState([]);
+  const [xPath, setXPath] = useState(null);
+  const [yPath, setYPath] = useState(null);
   const [yValue, setYValue] = useState("sepalWidth");
   const [xValue, setXValue] = useState("sepalLength");
 
-  const yMax = (Math.max(...data.map(item => item[yValue])));
-  const yMin = (Math.min(...data.map(item => item[yValue])));
-  const xMax = (Math.max(...data.map(item => item[xValue])));
-  const xMin = (Math.min(...data.map(item => item[xValue])));
+  const [yMax, setYMax] = useState(0);
+  const [yMin, setYMin] = useState(0);
+  const [xMax, setXMax] = useState(0);
+  const [xMin, setXMin] = useState(0);
   //配列名は複数形
   const [filterKinds, setfilterKinds] = useState(["setosa","versicolor","virginica"]);
 
@@ -31,9 +33,8 @@ function App() {
   const def_one_height = 10;
   const def_one_height_space = def_height / def_one_height;
 
-  const browse_width = 20, browse_height = 20;
-
-  const color = d3.scaleOrdinal(d3.schemeCategory10);
+  const browse_width = 20;//最小大値から＋
+  const browse_height = 20;
 
   useEffect(() => {
     let url = 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/2004014/iris.json';
@@ -42,22 +43,50 @@ function App() {
       return response.json(); //読み込むデータをJSONに設定
     })
     .then(function (json) {
-      const json_def = json;
-      setData(json_def);
+      setData(json);
+      /*setData(data.filter(({species}) => {
+      return filterKinds.some(item => item === species);
+    }));ここに書いて、第二をfilterKindsだとできる */
     });
+  }, []);//data
+  
+  useEffect(() => {
+    setData(data.filter(({ species }) => {
+      return filterKinds.every(kind => kind === species);
+    }));
+   /* console.log(filterKinds);
+    console.log(data);*/
   }, []);
 
- /* //reactでcss
-  const circleStyle = {
-    display: 'block',
-    transition: "cx .5s ease, cy .5s ease"
-    //,transitionProperty: "cx, cy",
-    //transitionDuration: ".5s ease"
-  }*/
-  /*const path_x = d3.path();
-  path_x.moveTo(margin.top,margin.left+def_height);
-  path_x.lineTo(margin.top+def_width+browse_width,margin.left+def_height);
-  setXPath(path_x.toString());*/
+  useEffect(() => {
+    if (data.length > 0) {//注意 空でないか
+      setYMax(Math.max(...data.map(item => item[yValue])));
+      setYMin(Math.min(...data.map(item => item[yValue])));
+      setXMax(Math.max(...data.map(item => item[xValue])));
+      setXMin(Math.min(...data.map(item => item[xValue])));
+//setVerticalMax(Math.max(...data.map(({sepalWidth}) => sepalWidth)));
+      /*setData(data.filter(({species}) => {
+        let result;
+        if(filterKinds[0] == 1){result = species === "setosa"} 
+        if(filterKinds[1] == 1){result = species === "versicolor"} 
+        if(filterKinds[2] == 1){result = species === "virginica"} 
+        return result;
+      }));*/
+      
+    }
+    
+    //domainが0~100でrangeが0~500なら 50のとき250を返す
+    /*axis */
+    const path_x = d3.path();
+    path_x.moveTo(margin.top,margin.left+def_height);
+    path_x.lineTo(margin.top+def_width+browse_width,margin.left+def_height);
+    const path_y = d3.path();
+    path_y.moveTo(margin.top,margin.left-browse_height);
+    path_y.lineTo(margin.top,margin.left+def_height);
+
+    setXPath(path_x.toString());
+    setYPath(path_y.toString());
+  }, [yValue,xValue]);
 
   const xScale = d3.scaleLinear()
     .domain([xMin, xMax])
@@ -67,22 +96,81 @@ function App() {
     .domain([yMin, yMax])
     .range([0,def_height]);//.range([def_height,0]);
 
-  const handleSelectXChange = (event) => {
+  const handleSelectChange = (event) => {
     setXValue(event.target.value);
   };
-
-  const handleSelectYChange = (event) => {
+  const handleSelectChange2 = (event) => {
     setYValue(event.target.value);
   };
 
   const speciesSelectBtn = (speciesSelectValue) => {
-    if (filterKinds.includes(speciesSelectValue)) {
-      setfilterKinds(filterKinds.filter(item => item !== speciesSelectValue));
-    } else {
+    /*if (filterKinds.includes(speciesSelectValue)) {
       setfilterKinds([...filterKinds, speciesSelectValue]);
+    } else {
+      const updatedFilterKinds = filterKinds.filter((species) => species !== speciesSelectValue);
+      setfilterKinds(updatedFilterKinds);
     }
-    setData(data.filter(item => filterKinds.includes(item.species)));
+    console.log(filterKinds);
+    */
+    if(speciesSelectValue === "setosa"){
+      if(filterKinds[0] === "")
+        setfilterKinds(["setosa",filterKinds[1],filterKinds[2]]);
+      else
+        setfilterKinds(["",filterKinds[1],filterKinds[2]]);
+    }else if(speciesSelectValue === "versicolor"){
+      if(filterKinds[1] === "")
+        setfilterKinds([filterKinds[0],"versicolor",filterKinds[2]]);
+      else
+        setfilterKinds([filterKinds[0],"",filterKinds[2]]);
+    }else if(speciesSelectValue === "virginica"){
+      if(filterKinds[2] === "")
+        setfilterKinds([filterKinds[0],filterKinds[1],"virginica"]);
+      else
+        setfilterKinds([filterKinds[0],filterKinds[1],""]);
+    }
   };
+
+  const color = d3.scaleOrdinal(d3.schemeCategory10);//値が同じなら同じ色、違うと違う色を返す
+  /*scaleLinearで範囲
+    .domine 定義域
+    .nice 範囲が良い感じに
+
+  accent = d3.scaleOrdinal(d3.schemeAccent); 色を順番に付けてくれる
+  */
+  //const =で更新するとエラー
+
+  /*<path stroke="black" fill="none" d={path_x} stroke-width="2"/>
+        <path stroke="black" fill="none" d={path_y} stroke-width="2"/> */
+        //transform='translate(${x},10)'で親要素ごと移動
+
+/*<line x1="0" y1="80" x2="100" y2="20" stroke="black" />*/
+/*
+function generateXPath(index) {
+    const path = d3.path();
+    path.moveTo(index, margin.left+def_height);
+    path.lineTo(index, margin.left+def_height+10);
+    return path.toString();
+}
+  function generateYPath(index) {
+  const path = d3.path();
+  path.moveTo(margin.top-5, index);
+  path.lineTo(margin.top, index);
+  return path.toString();
+}
+
+<path
+  stroke="black" 
+  fill="none" 
+  d={generateXPath(browse_width+margin.top+def_one_width_space*index)}
+  stroke-width="2"/>
+
+<path
+  stroke="black" 
+  fill="none" 
+  d={generateYPath(-browse_height+margin.left+def_height-def_one_height_space*index)}
+  stroke-width="2"/>
+*/
+//fill={item[horizontalValue] === "setosa" ? "red" : "blue"}
 
 
   return (
@@ -93,9 +181,9 @@ function App() {
             baseProfile="full"
             width={browse_width+def_width+margin.top+margin.bottom} height={browse_height+def_height+margin.left*2}
             xmlns="http://www.w3.org/2000/svg">
-          <line x1={margin.left} y1={0} x2={margin.left} y2={margin.top+def_height} stroke="#353535" />
-          <line x1={margin.left} y1={margin.top+def_height} x2={margin.left+def_width+margin.left} y2={margin.top+def_height} stroke="#353535" />
-       
+          <path stroke="#353535" fill="none" d={xPath} stroke-width="2"/>
+          <path stroke="#353535" fill="none" d={yPath} stroke-width="2"/>
+          
           {data.map((item, index) => (
             <circle
               key={index}
@@ -137,7 +225,7 @@ function App() {
 
       <div>
         <h2>横</h2>
-        <select onChange={handleSelectXChange}>
+        <select onChange={handleSelectChange}>
           <option value="">選択してください</option>
           <option value="sepalLength">sepalLength</option>
           <option value="sepalWidth">sepalWidth</option>
@@ -148,7 +236,7 @@ function App() {
 
       <div>
         <h2>縦</h2>
-        <select onChange={handleSelectYChange}>
+        <select onChange={handleSelectChange2}>
           <option value="">選択してください</option>
           <option value="sepalLength">sepalLength</option>
           <option value="sepalWidth">sepalWidth</option>

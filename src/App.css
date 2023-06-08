@@ -1,7 +1,13 @@
 .App {
+  font-family: 'Klee One', cursive;
   text-align: center;
+  user-select: none;
+  cursor:pointer;
 }
 
+/*circle{
+  transition: .5s ease;
+}*/
 .App-logo {
   height: 40vmin;
   pointer-events: none;
